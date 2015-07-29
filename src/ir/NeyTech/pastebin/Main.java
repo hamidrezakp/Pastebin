@@ -1,4 +1,4 @@
-package ir.NeyTech.pastebin;
+package ir.NeyTech.PasteBin;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.awt.*;
@@ -8,6 +8,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.Charset;
@@ -16,10 +17,13 @@ import java.nio.file.Paths;
 import java.util.Objects;
 
 public class Main {
+    static int qr = 0;
+    String paste_url = null;
 
     public static void main(String[] args) throws IOException {
 
         String text = null, name = null, format = "text", private_level = "0", expire = "N", file_name = null;
+
 
         //help
         if (args.length <= 0) {
@@ -50,6 +54,10 @@ public class Main {
             if (Objects.equals(s, "-h")) {
                 show_help();
             }
+
+            if (Objects.equals(s, "-qr")) {
+                qr = 1;
+            }
             counter++;
         }
 
@@ -72,6 +80,9 @@ public class Main {
 
         try {
             main.sendPost(urlParameters);
+            if (qr == 1) {
+                main.qrcode();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -89,7 +100,7 @@ public class Main {
                 "       pastebin - command-line pastebin client\n" +
                 "\n" +
                 "SYNOPSIS\n" +
-                "       pastebinit [-cfhitpe]\n" +
+                "       pastebinit [-cfhitpe(qr)]\n" +
                 "\n" +
                 "DESCRIPTION\n" +
                 "       This manual page documents briefly the pastebin commands\n" +
@@ -118,7 +129,7 @@ public class Main {
                 "\n" +
                 "       -e [Expire date] N = Never(default) , 10M = 10 Minutes , 1H = 1 Hour\n" +
                 "        , 1D = 1 Day , 1W = 1 Week , 2W = 2 Weeks , 1M = 1 Month\n" +
-                "\n" +
+                "       -qr [generate QR-Code] make a link with QR code.\n" +
                 "\n" +
                 "AUTHORS\n" +
                 "       Pastebin is currently written by Hamid Reza Kaveh Pishghadam.\n" +
@@ -127,6 +138,20 @@ public class Main {
                 "\n" +
                 "COPYRIGHT\n" +
                 "       Copyright © 2015 NeyTech Corp.");
+    }
+
+    public static String getBetween(String str, String open, String close) {
+        if (str == null || open == null || close == null) {
+            return null;
+        }
+        int start = str.indexOf(open);
+        if (start != -1) {
+            int end = str.indexOf(close, start + open.length());
+            if (end != -1) {
+                return str.substring(start + open.length(), end);
+            }
+        }
+        return null;
     }
 
     private void sendPost(String urlParameters) throws Exception {
@@ -160,13 +185,44 @@ public class Main {
 
         //print result
         if (response.toString().length() > 0) {
-            System.out.println(response.toString());
+            paste_url = response.toString();
+            System.out.println("Paste URL ==> " + response.toString());
             StringSelection stringSelection = new StringSelection(response.toString());
             Clipboard clpbrd = Toolkit.getDefaultToolkit().getSystemClipboard();
             clpbrd.setContents(stringSelection, null);
             System.out.println("URL copied to Clipboard!!");
+
         }
     }
 
+    private void qrcode() throws Exception {
 
+        String url = "http://api.yon.ir/?url=" + URLEncoder.encode("https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=" + paste_url + "&choe=UTF-8" + "&format=text");
+
+        URL obj = new URL(url);
+        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+
+        // optional default is GET
+        con.setRequestMethod("GET");
+
+        //add request header
+        String USER_AGENT = "Mozilla/5.0";
+        con.setRequestProperty("User-Agent", USER_AGENT);
+
+        BufferedReader in = new BufferedReader(
+                new InputStreamReader(con.getInputStream()));
+        String inputLine;
+        StringBuffer response = new StringBuffer();
+
+        while ((inputLine = in.readLine()) != null) {
+            response.append(inputLine);
+        }
+        in.close();
+
+        //print result
+
+        String qrcode = getBetween(response.toString(), "\"output\":\"", "\",\"clicks\"");
+        System.out.println("QR-Code URL ==> Yon.ir/" + qrcode);
+
+    }
 }
